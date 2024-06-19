@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use csv::{ReaderBuilder, StringRecord};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 // circuit_id,circuit_name,device_id,device_name,parent_node,mac,ipv4,ipv6,download_min,upload_min,download_max,upload_max,comment
 #[derive(Deserialize, Serialize, Debug)]
@@ -79,4 +79,19 @@ pub fn read_shaped_devices(path: &str) -> Result<Vec<SerializableShapedDevice>> 
     }
 
     Ok(result)
+}
+
+pub fn write_shaped_devices(shaped_devices: &[SerializableShapedDevice], path: &str) -> Result<()> {
+    let file_path = Path::new(path);
+    let mut writer = csv::WriterBuilder::new()
+        .has_headers(true)
+        .from_path(file_path)
+        .unwrap();
+
+    for d in shaped_devices.iter() {
+        writer.serialize(d).unwrap();
+    }
+    writer.flush()?;
+    info!("Wrote {} lines to ShapedDevices.csv", shaped_devices.len());
+    Ok(())
 }

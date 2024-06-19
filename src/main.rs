@@ -16,7 +16,7 @@ use tracing::{info, warn};
 use crate::access_point::AccessPoint;
 use crate::api::{get_device_stats, get_devices, Device};
 use crate::config::CnMaestroConfig;
-use crate::shaped_devices::read_shaped_devices;
+use crate::shaped_devices::{read_shaped_devices, write_shaped_devices};
 use crate::sm::SM;
 
 mod access_point;
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     let config = CnMaestroConfig::from_env()?;
 
     info!("Loading ShapedDevices from {}", &config.shaped_devices_path);
-    let shaped_devices = read_shaped_devices(&config.shaped_devices_path)?;
+    let mut shaped_devices = read_shaped_devices(&config.shaped_devices_path)?;
     info!("Loaded {} records", shaped_devices.len());
 
     info!("Connecting to cnMaestro at {}", config.url);
@@ -125,6 +125,16 @@ async fn main() -> Result<()> {
         .collect();
 
     info!("Found {} SMs with IPs different from the entry in ShapedDevices", ip_mismatches.len());
+
+    // Apply the updates to Shaped Devices
+    for (mac, ip) in ip_mismatches.iter() {
+        if let Some(shaped) = shaped_devices.iter_mut().find(|sd| sd.mac.to_lowercase() == mac.to_lowercase()) {
+            shaped.ipv4 = format!("{ip}/32");
+        }
+    }
+
+    // Write Shaped Devices
+    write_shaped_devices(&shaped_devices, &config.shaped_devices_path)?;
 
     Ok(())
 }
